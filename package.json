@@ -1,0 +1,28 @@
+{
+  "name": "audio-to-text",
+  "version": "1.0.0",
+  "description": "Pick an audio file and save a same-named .txt transcription beside it.",
+  "author": "You",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "productName": "Audio to Text",
+    "appId": "com.example.audio2text",
+    "files": [
+      "**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": ["nsis", "portable", "dir"]
+    }
+  }
+}

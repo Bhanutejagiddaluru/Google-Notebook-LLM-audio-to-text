@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Audio to Text</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto;
+      background: #0b0c10; color: #e8e8e8;
+      display: grid; place-items: start center; min-height: 100vh; padding: 24px;
+    }
+    .app {
+      width: min(900px, 95vw);
+      background: #15171c; border: 1px solid #262a33; border-radius: 16px;
+      padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    h1 { margin: 0 0 6px 0; font-size: 20px; }
+    p.hint { margin: 0 0 18px 0; color: #9ba3af; }
+    .row { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin: 10px 0; }
+    input[type="text"] {
+      width: 100%; padding: 12px; border-radius: 10px;
+      border: 1px solid #303644; background: #0f1116; color: #dfe3ea;
+    }
+    button {
+      padding: 10px 14px; border-radius: 10px; border: 1px solid #2d3340;
+      background: #1a1f29; color: #f3f4f6; cursor: pointer;
+    }
+    button.primary { background: #2563eb; border-color: #2563eb; }
+    .grid { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+    .status {
+      margin-top: 16px; padding: 12px; min-height: 44px;
+      background: #0f1116; border: 1px solid #303644; border-radius: 10px;
+      white-space: pre-wrap;
+    }
+    .drop { margin-top: 10px; padding: 20px; text-align: center;
+      border: 1px dashed #394152; border-radius: 10px; color: #9ba3af; }
+    .ok { color: #22c55e; } .err { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Audio to Text</h1>
+    <p class="hint">Pick an audio file; transcript will be saved next to it as <code>same-name.txt</code>.</p>
+
+    <div class="row">
+      <input id="audioPath" type="text" placeholder="Audio file path (drag & drop or Browse)" />
+      <button id="browseAudio">Browse</button>
+    </div>
+
+    <div class="grid">
+      <div class="row">
+        <!-- ✅ Default Whisper binary path -->
+        <input id="whisperBin" type="text"
+          value="C:\\Users\\stain\\Downloads\\interview_app\\whisper-cli.exe"
+          placeholder="Whisper binary (optional)" />
+        <button id="browseWhisper">Browse</button>
+      </div>
+      <div class="row">
+        <!-- ✅ Default Model path -->
+        <input id="modelPath" type="text"
+          value="C:\\Users\\stain\\Downloads\\interview_app\\ggml-base.en.bin"
+          placeholder="Model file (optional)" />
+        <button id="browseModel">Browse</button>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <input id="language" type="text" placeholder="Language code (default: en)" />
+      <button id="transcribe" class="primary">Transcribe</button>
+    </div>
+
+    <div class="drop" id="drop">Drag & drop audio file here</div>
+    <div class="status" id="status">Ready.</div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const audioPath  = document.getElementById('audioPath');
+    const whisperBin = document.getElementById('whisperBin');
+    const modelPath  = document.getElementById('modelPath');
+    const language   = document.getElementById('language');
+    const status     = document.getElementById('status');
+
+    document.getElementById('browseAudio').onclick = async () => {
+      const res = await ipcRenderer.invoke('ui:pick-audio');
+      if (res?.path) audioPath.value = res.path;
+    };
+    document.getElementById('browseWhisper').onclick = async () => {
+      const res = await ipcRenderer.invoke('ui:pick-binary');
+      if (res?.path) whisperBin.value = res.path;
+    };
+    document.getElementById('browseModel').onclick = async () => {
+      const res = await ipcRenderer.invoke('ui:pick-model');
+      if (res?.path) modelPath.value = res.path;
+    };
+
+    document.getElementById('transcribe').onclick = async () => {
+      status.textContent = 'Starting...';
+      disable(true);
+      try {
+        const payload = {
+          audioPath: audioPath.value.trim(),
+          whisperBin: whisperBin.value.trim(),
+          modelPath: modelPath.value.trim(),
+          language: (language.value.trim() || 'en'),
+          noTimestamps: true
+        };
+        const res = await ipcRenderer.invoke('job:transcribe', payload);
+        if (res.ok) status.innerHTML = `✅ Done.<br>Saved: <span class="ok">${res.outputPath}</span>`;
+        else status.innerHTML = `❌ <span class="err">${res.error}</span>`;
+      } finally { disable(false); }
+    };
+
+    function disable(on){ document.querySelectorAll('button,input').forEach(el=>el.disabled=on); }
+    const drop=document.getElementById('drop');
+    drop.addEventListener('dragover',e=>{e.preventDefault();drop.style.opacity=.8});
+    drop.addEventListener('dragleave',()=>drop.style.opacity=1);
+    drop.addEventListener('drop',e=>{
+      e.preventDefault();drop.style.opacity=1;
+      const f=e.dataTransfer.files?.[0]; if(f) audioPath.value=f.path;
+    });
+    ipcRenderer.on('status',(_,msg)=>status.textContent=msg);
+  </script>
+</body>
+</html>
